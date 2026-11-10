@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Secret Santa">
+<meta name="theme-color" content="#0d1b2a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Christmas Secret Santa</title>
+<style>
+  :root {
+    --red: #c41e3a;
+    --green: #0b6e4f;
+    --gold: #d4af37;
+    --cream: #fff8f0;
+    --dark: #1a1a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 50%, #415a77 100%);
+    min-height: 100vh;
+    color: var(--cream);
+    padding: 20px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  header {
+    text-align: center;
+    padding: 30px 20px;
+    background: rgba(196, 30, 58, 0.15);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.2);
+  }
+  header h1 {
+    font-size: 2.4rem;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+    margin-bottom: 8px;
+  }
+  header p { opacity: 0.9; font-size: 1.1rem; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tab {
+    flex: 1;
+    min-width: 140px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    color: var(--cream);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab:hover { background: rgba(255,255,255,0.15); }
+  .tab.active { background: var(--red); border-color: var(--gold); color: white; }
+  .panel {
+    display: none;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 16px;
+    padding: 28px;
+    backdrop-filter: blur(10px);
+  }
+  .panel.active { display: block; }
+  h2 { color: var(--gold); margin-bottom: 20px; font-size: 1.5rem; }
+  .form-group { margin-bottom: 18px; }
+  label { display: block; margin-bottom: 6px; font-weight: 600; color: #ffd700; }
+  input, textarea, select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid rgba(212,175,55,0.4);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.3);
+    color: white;
+    font-size: 1rem;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--gold); }
+  textarea { min-height: 80px; resize: vertical; }
+  .wishes { display: grid; gap: 10px; }
+  button {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(196,30,58,0.4); }
+  button.secondary { background: var(--green); }
+  button.danger { background: #8b0000; }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .person-card {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(212,175,55,0.4);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .person-card h3 { color: var(--gold); margin-bottom: 8px; }
+  .person-card p { margin: 4px 0; opacity: 0.95; }
+  .assignment-box {
+    text-align: center;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, rgba(196,30,58,0.2), rgba(11,110,79,0.2));
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+  }
+  .assignment-box .name { font-size: 2.2rem; color: var(--gold); margin: 10px 0; }
+  .empty { text-align: center; opacity: 0.7; padding: 40px; }
+  .status { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
+  .status.ok { background: rgba(11,110,79,0.3); }
+  .status.warn { background: rgba(196,30,58,0.3); }
+  footer { text-align: center; margin-top: 30px; opacity: 0.6; font-size: 0.9rem; }
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.8rem; }
+    .tab { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🎄 Christmas Secret Santa 🎁</h1>
+    <p>Fill out your wishlist • Draw names • See what your person wants</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="form">📝 My Form</button>
+    <button class="tab" data-tab="group">👥 Group</button>
+    <button class="tab" data-tab="draw">🎲 Draw Names</button>
+    <button class="tab" data-tab="assignment">🎅 My Assignment</button>
+  </div>
+
+  <div id="form" class="panel active">
+    <h2>Your Secret Santa Form</h2>
+    <div id="formStatus"></div>
+    <form id="santaForm">
+      <div class="form-group"><label>Your Name</label><input type="text" id="name" required placeholder="Your full name"></div>
+      <div class="form-group"><label>Favorite Color</label><input type="text" id="color" placeholder="e.g. Forest Green"></div>
+      <div class="form-group"><label>Favorite Store</label><input type="text" id="store" placeholder="e.g. Target, Amazon, local bookstore"></div>
+      <div class="form-group"><label>Favorite Food</label><input type="text" id="food" placeholder="e.g. Tacos, Sushi"></div>
+      <div class="form-group"><label>Favorite Snack</label><input type="text" id="snack" placeholder="e.g. Chocolate, Popcorn"></div>
+      <div class="form-group"><label>Favorite Hobby</label><input type="text" id="hobby" placeholder="e.g. Hiking, Gaming, Cooking"></div>
+      <div class="form-group"><label>Shoe Size</label><input type="text" id="shoe" placeholder="e.g. 9, 10.5, Women's 8"></div>
+      <div class="form-group"><label>Clothes Size</label><input type="text" id="clothes" placeholder="e.g. Medium, Large, 32x32"></div>
+      <div class="form-group">
+        <label>Name 3 things you would like for Christmas</label>
+        <div class="wishes">
+          <input type="text" id="wish1" placeholder="1. ">
+          <input type="text" id="wish2" placeholder="2. ">
+          <input type="text" id="wish3" placeholder="3. ">
+        </div>
+      </div>
+      <div class="form-group"><label>Picture links or notes (optional)</label><textarea id="pics" placeholder="Paste image links or describe the gifts you'd like..."></textarea></div>
+      <div class="btn-row">
+        <button type="submit">Save My Form</button>
+        <button type="button" class="secondary" onclick="loadMyForm()">Load My Saved Form</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="group" class="panel">
+    <h2>Everyone Who Has Signed Up</h2>
+    <div id="groupList"></div>
+    <div class="btn-row">
+      <button class="secondary" onclick="exportData()">Export Group Data</button>
+      <button class="danger" onclick="clearAll()">Clear All Data</button>
+    </div>
+    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Everyone fills out their form on this same page. Data is saved in this browser.</p>
+  </div>
+
+  <div id="draw" class="panel">
+    <h2>Draw Secret Santas</h2>
+    <div id="drawStatus"></div>
+    <p style="margin-bottom:16px;">Once everyone has filled out their form, click below to randomly assign each person a Secret Santa (no one gets themselves).</p>
+    <button onclick="drawNames()">🎲 Draw Names Now</button>
+    <div id="drawResults" style="margin-top:24px;"></div>
+  </div>
+
+  <div id="assignment" class="panel">
+    <h2>Your Secret Santa Assignment</h2>
+    <div id="assignmentContent"></div>
+  </div>
+
+  <footer>Made for your Christmas gift exchange • All data stays in this browser</footer>
+</div>
+
+<script>
+const STORAGE_KEY = 'secretSantaData_v1';
+function getData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : { people: [], assignments: {} };
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+function showPanel(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+  if (tabId === 'group') renderGroup();
+  if (tabId === 'assignment') renderAssignment();
+  if (tabId === 'draw') renderDrawStatus();
+}
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => showPanel(tab.dataset.tab));
+});
+document.getElementById('santaForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const person = {
+    name: document.getElementById('name').value.trim(),
+    color: document.getElementById('color').value.trim(),
+    store: document.getElementById('store').value.trim(),
+    food: document.getElementById('food').value.trim(),
+    snack: document.getElementById('snack').value.trim(),
+    hobby: document.getElementById('hobby').value.trim(),
+    shoe: document.getElementById('shoe').value.trim(),
+    clothes: document.getElementById('clothes').value.trim(),
+    wishes: [document.getElementById('wish1').value.trim(), document.getElementById('wish2').value.trim(), document.getElementById('wish3').value.trim()].filter(Boolean),
+    pics: document.getElementById('pics').value.trim()
+  };
+  if (!person.name) return alert('Please enter your name');
+  const data = getData();
+  const idx = data.people.findIndex(p => p.name.toLowerCase() === person.name.toLowerCase());
+  if (idx >= 0) data.people[idx] = person;
+  else data.people.push(person);
+  saveData(data);
+  document.getElementById('formStatus').innerHTML = `<div class="status ok">✓ Saved for ${person.name}!</div>`;
+  setTimeout(() => document.getElementById('formStatus').innerHTML = '', 3000);
+});
+function loadMyForm() {
+  const name = prompt('Enter your name to load your form:');
+  if (!name) return;
+  const data = getData();
+  const person = data.people.find(p => p.name.toLowerCase() === name.toLowerCase());
+  if (!person) return alert('No form found for that name');
+  document.getElementById('name').value = person.name;
+  document.getElementById('color').value = person.color || '';
+  document.getElementById('store').value = person.store || '';
+  document.getElementById('food').value = person.food || '';
+  document.getElementById('snack').value = person.snack || '';
+  document.getElementById('hobby').value = person.hobby || '';
+  document.getElementById('shoe').value = person.shoe || '';
+  document.getElementById('clothes').value = person.clothes || '';
+  document.getElementById('wish1').value = person.wishes?.[0] || '';
+  document.getElementById('wish2').value = person.wishes?.[1] || '';
+  document.getElementById('wish3').value = person.wishes?.[2] || '';
+  document.getElementById('pics').value = person.pics || '';
+}
+function renderGroup() {
+  const data = getData();
+  const el = document.getElementById('groupList');
+  if (!data.people.length) {
+    el.innerHTML = '<div class="empty">No one has filled out the form yet.</div>';
+    return;
+  }
+  el.innerHTML = data.people.map(p => `
+    <div class="person-card">
+      <h3>${p.name}</h3>
+      <p><strong>Color:</strong> ${p.color || '—'}</p>
+      <p><strong>Store:</strong> ${p.store || '—'}</p>
+      <p><strong>Food:</strong> ${p.food || '—'}</p>
+      <p><strong>Snack:</strong> ${p.snack || '—'}</p>
+      <p><strong>Hobby:</strong> ${p.hobby || '—'}</p>
+      <p><strong>Shoe:</strong> ${p.shoe || '—'} &nbsp;|&nbsp; <strong>Clothes:</strong> ${p.clothes || '—'}</p>
+      <p><strong>Wishes:</strong> ${p.wishes?.length ? p.wishes.join(', ') : '—'}</p>
+    </div>
+  `).join('');
+}
+function renderDrawStatus() {
+  const data = getData();
+  const el = document.getElementById('drawStatus');
+  if (data.people.length < 2) {
+    el.innerHTML = '<div class="status warn">Need at least 2 people before drawing.</div>';
+  } else if (Object.keys(data.assignments).length) {
+    el.innerHTML = `<div class="status ok">Names already drawn for ${Object.keys(data.assignments).length} people.</div>`;
+  } else {
+    el.innerHTML = `<div class="status ok">${data.people.length} people ready to draw!</div>`;
+  }
+}
+function drawNames() {
+  const data = getData();
+  if (data.people.length < 2) return alert('Need at least 2 people.');
+  const names = data.people.map(p => p.name);
+  let assignments = {};
+  let success = false;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const shuffled = [...names].sort(() => Math.random() - 0.5);
+    let ok = true;
+    assignments = {};
+    for (let i = 0; i < names.length; i++) {
+      if (names[i] === shuffled[i]) { ok = false; break; }
+      assignments[names[i]] = shuffled[i];
+    }
+    if (ok) { success = true; break; }
+  }
+  if (!success) return alert('Could not generate a valid assignment. Try again.');
+  data.assignments = assignments;
+  saveData(data);
+  renderDrawStatus();
+  const results = document.getElementById('drawResults');
+  results.innerHTML = '<h3 style="color:#d4af37;margin-bottom:12px;">Assignments (for organizer):</h3>' +
+    Object.entries(assignments).map(([giver, receiver]) =>
+      `<div class="person-card"><strong>${giver}</strong> → <strong>${receiver}</strong></div>`
+    ).join('');
+}
+function renderAssignment() {
+  const data = getData();
+  const el = document.getElementById('assignmentContent');
+  const name = prompt('Enter your name to see who you have:');
+  if (!name) {
+    el.innerHTML = '<div class="empty">Enter your name to view your assignment.</div>';
+    return;
+  }
+  const receiverName = data.assignments[name];
+  if (!receiverName) {
+    el.innerHTML = '<div class="empty">Names have not been drawn yet, or your name was not found.</div>';
+    return;
+  }
+  const person = data.people.find(p => p.name === receiverName);
+  if (!person) {
+    el.innerHTML = '<div class="empty">Assignment found but profile missing.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="assignment-box">
+      <p>You are the Secret Santa for</p>
+      <div class="name">${person.name}</div>
+    </div>
+    <div class="person-card" style="margin-top:20px;">
+      <h3>What ${person.name} wants</h3>
+      <p><strong>Favorite Color:</strong> ${person.color || '—'}</p>
+      <p><strong>Favorite Store:</strong> ${person.store || '—'}</p>
+      <p><strong>Favorite Food:</strong> ${person.food || '—'}</p>
+      <p><strong>Favorite Snack:</strong> ${person.snack || '—'}</p>
+      <p><strong>Favorite Hobby:</strong> ${person.hobby || '—'}</p>
+      <p><strong>Shoe Size:</strong> ${person.shoe || '—'}</p>
+      <p><strong>Clothes Size:</strong> ${person.clothes || '—'}</p>
+      <p><strong>Christmas Wishes:</strong></p>
+      <ol style="margin-left:20px;margin-top:6px;">
+        ${(person.wishes || []).map(w => `<li>${w}</li>`).join('') || '<li>—</li>'}
+      </ol>
+      ${person.pics ? `<p style="margin-top:10px;"><strong>Pics / Notes:</strong><br>${person.pics.replace(/\n/g,'<br>')}</p>` : ''}
+    </div>
+  `;
+}
+function exportData() {
+  const data = getData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'secret-santa-data.json';
+  a.click();
+}
+function clearAll() {
+  if (confirm('Delete all forms and assignments? This cannot be undone.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  }
+}
+renderDrawStatus();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
