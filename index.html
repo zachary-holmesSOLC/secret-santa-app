@@ -180,6 +180,10 @@
   <div id="group" class="panel">
     <h2>Everyone Who Has Signed Up</h2>
     <div id="groupList"></div>
+    <div id="everyoneJoined" style="display:none; margin: 20px 0;">
+      <div class="status ok" style="text-align:center; font-size:1.1rem;">🎉 Everyone's in!</div>
+      <button class="share-btn" style="width:100%; margin-top:12px;" onclick="shareEveryoneJoined()">📱 Text: Everyone Joined – Time to Draw!</button>
+    </div>
     <div class="btn-row">
       <button class="secondary" onclick="exportData()">Export Group Data</button>
       <button class="danger" onclick="clearAll()">Clear All Data</button>
@@ -213,10 +217,7 @@ function getData() {
 }
 function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
-async function shareApp() {
-  const text = `Hey! Join our Christmas Secret Santa 🎄\n\nFill out your wishlist here:\n${APP_URL}\n\nOpen the link, tap “My Form”, and save your info. Once everyone’s in we can draw names!`;
-  const title = 'Christmas Secret Santa';
-
+async function shareMessage(text, title = 'Christmas Secret Santa') {
   if (navigator.share) {
     try {
       await navigator.share({ title, text, url: APP_URL });
@@ -225,10 +226,20 @@ async function shareApp() {
       if (err.name !== 'AbortError') console.log(err);
     }
   }
-
-  // Fallback: open SMS with pre-filled message (works great on iOS/Android)
   const smsUrl = `sms:?&body=${encodeURIComponent(text)}`;
   window.location.href = smsUrl;
+}
+
+async function shareApp() {
+  const text = `Hey! Join our Christmas Secret Santa 🎄\n\nFill out your wishlist here:\n${APP_URL}\n\nOpen the link, tap “My Form”, and save your info. Once everyone’s in we can draw names!`;
+  await shareMessage(text);
+}
+
+async function shareEveryoneJoined() {
+  const data = getData();
+  const names = data.people.map(p => p.name).join(', ');
+  const text = `🎄 Everyone's in for Secret Santa! 🎉\n\nPeople signed up: ${names}\n\nOpen the app and go to the Draw Names tab to assign everyone:\n${APP_URL}\n\nThen check “My Assignment” to see who you got!`;
+  await shareMessage(text, 'Everyone Joined – Time to Draw!');
 }
 
 function showPanel(tabId) {
@@ -288,8 +299,10 @@ function loadMyForm() {
 function renderGroup() {
   const data = getData();
   const el = document.getElementById('groupList');
+  const joinedEl = document.getElementById('everyoneJoined');
   if (!data.people.length) {
     el.innerHTML = '<div class="empty">No one has filled out the form yet.</div>';
+    joinedEl.style.display = 'none';
     return;
   }
   el.innerHTML = data.people.map(p => `
@@ -304,6 +317,7 @@ function renderGroup() {
       <p><strong>Wishes:</strong> ${p.wishes?.length ? p.wishes.join(', ') : '—'}</p>
     </div>
   `).join('');
+  joinedEl.style.display = data.people.length >= 2 ? 'block' : 'none';
 }
 function renderDrawStatus() {
   const data = getData();
