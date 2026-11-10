@@ -127,6 +127,19 @@
   .status { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
   .status.ok { background: rgba(11,110,79,0.3); }
   .status.warn { background: rgba(196,30,58,0.3); }
+  .checklist { margin: 16px 0; }
+  .checklist-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    font-size: 1.05rem;
+  }
+  .check { font-size: 1.3rem; width: 28px; text-align: center; }
+  .missing { opacity: 0.6; }
   footer { text-align: center; margin-top: 30px; opacity: 0.6; font-size: 0.9rem; }
   @media (max-width: 600px) {
     header h1 { font-size: 1.8rem; }
@@ -178,17 +191,25 @@
   </div>
 
   <div id="group" class="panel">
-    <h2>Everyone Who Has Signed Up</h2>
-    <div id="groupList"></div>
+    <h2>Group Checklist</h2>
+    <div class="form-group">
+      <label>Expected Names (one per line)</label>
+      <textarea id="expectedNames" placeholder="Alice\nBob\nCharlie\nDana" style="min-height:120px;"></textarea>
+      <button type="button" class="secondary" style="margin-top:8px;" onclick="saveExpectedNames()">Save Name List</button>
+    </div>
+    <div id="checklistSummary" style="margin:16px 0; font-weight:600;"></div>
+    <div id="checklist" class="checklist"></div>
     <div id="everyoneJoined" style="display:none; margin: 20px 0;">
       <div class="status ok" style="text-align:center; font-size:1.1rem;">🎉 Everyone's in!</div>
       <button class="share-btn" style="width:100%; margin-top:12px;" onclick="shareEveryoneJoined()">📱 Text: Everyone Joined – Time to Draw!</button>
     </div>
+    <h2 style="margin-top:28px;">Submitted Forms</h2>
+    <div id="groupList"></div>
     <div class="btn-row">
       <button class="secondary" onclick="exportData()">Export Group Data</button>
       <button class="danger" onclick="clearAll()">Clear All Data</button>
     </div>
-    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Everyone fills out their form on this same page. Data is saved in this browser.</p>
+    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Set the expected names above. Checkmarks appear automatically when someone submits their form.</p>
   </div>
 
   <div id="draw" class="panel">
@@ -213,7 +234,7 @@ const APP_URL = 'https://zachary-holmessolc.github.io/secret-santa-app/index.htm
 
 function getData() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? JSON.parse(raw) : { people: [], assignments: {} };
+  return raw ? JSON.parse(raw) : { people: [], assignments: {}, expectedNames: [] };
 }
 function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
@@ -240,6 +261,16 @@ async function shareEveryoneJoined() {
   const names = data.people.map(p => p.name).join(', ');
   const text = `🎄 Everyone's in for Secret Santa! 🎉\n\nPeople signed up: ${names}\n\nOpen the app and go to the Draw Names tab to assign everyone:\n${APP_URL}\n\nThen check “My Assignment” to see who you got!`;
   await shareMessage(text, 'Everyone Joined – Time to Draw!');
+}
+
+function saveExpectedNames() {
+  const raw = document.getElementById('expectedNames').value;
+  const names = raw.split(/\n+/).map(n => n.trim()).filter(Boolean);
+  const data = getData();
+  data.expectedNames = names;
+  saveData(data);
+  renderGroup();
+  alert('Name list saved!');
 }
 
 function showPanel(tabId) {
@@ -298,11 +329,39 @@ function loadMyForm() {
 }
 function renderGroup() {
   const data = getData();
-  const el = document.getElementById('groupList');
+  const expected = data.expectedNames || [];
+  const submitted = new Set(data.people.map(p => p.name.toLowerCase()));
+
+  // Checklist
+  const checklistEl = document.getElementById('checklist');
+  const summaryEl = document.getElementById('checklistSummary');
+  if (expected.length) {
+    const done = expected.filter(n => submitted.has(n.toLowerCase())).length;
+    summaryEl.innerHTML = `${done} of ${expected.length} have submitted their form`;
+    checklistEl.innerHTML = expected.map(name => {
+      const has = submitted.has(name.toLowerCase());
+      return `<div class="checklist-item ${has ? '' : 'missing'}">
+        <span class="check">${has ? '✅' : '⬜'}</span>
+        <span>${name}</span>
+      </div>`;
+    }).join('');
+  } else {
+    summaryEl.innerHTML = 'Add the expected names above to track who has submitted.';
+    checklistEl.innerHTML = '';
+  }
+
+  // Load textarea
+  document.getElementById('expectedNames').value = expected.join('\n');
+
+  // Everyone joined banner
   const joinedEl = document.getElementById('everyoneJoined');
+  const allIn = expected.length >= 2 && expected.every(n => submitted.has(n.toLowerCase()));
+  joinedEl.style.display = allIn ? 'block' : 'none';
+
+  // Submitted forms list
+  const el = document.getElementById('groupList');
   if (!data.people.length) {
-    el.innerHTML = '<div class="empty">No one has filled out the form yet.</div>';
-    joinedEl.style.display = 'none';
+    el.innerHTML = '<div class="empty">No forms submitted yet.</div>';
     return;
   }
   el.innerHTML = data.people.map(p => `
@@ -317,7 +376,6 @@ function renderGroup() {
       <p><strong>Wishes:</strong> ${p.wishes?.length ? p.wishes.join(', ') : '—'}</p>
     </div>
   `).join('');
-  joinedEl.style.display = data.people.length >= 2 ? 'block' : 'none';
 }
 function renderDrawStatus() {
   const data = getData();
