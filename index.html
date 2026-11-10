@@ -45,6 +45,12 @@
     margin-bottom: 8px;
   }
   header p { opacity: 0.9; font-size: 1.1rem; }
+  .share-btn {
+    margin-top: 16px;
+    background: #0b6e4f;
+    font-size: 1.05rem;
+    padding: 12px 24px;
+  }
   .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
   .tab {
     flex: 1;
@@ -133,6 +139,7 @@
   <header>
     <h1>🎄 Christmas Secret Santa 🎁</h1>
     <p>Fill out your wishlist • Draw names • See what your person wants</p>
+    <button class="share-btn" onclick="shareApp()">📱 Text to Family</button>
   </header>
 
   <div class="tabs">
@@ -198,11 +205,32 @@
 
 <script>
 const STORAGE_KEY = 'secretSantaData_v1';
+const APP_URL = 'https://zachary-holmessolc.github.io/secret-santa-app/index.html';
+
 function getData() {
   const raw = localStorage.getItem(STORAGE_KEY);
   return raw ? JSON.parse(raw) : { people: [], assignments: {} };
 }
 function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+async function shareApp() {
+  const text = `Hey! Join our Christmas Secret Santa 🎄\n\nFill out your wishlist here:\n${APP_URL}\n\nOpen the link, tap “My Form”, and save your info. Once everyone’s in we can draw names!`;
+  const title = 'Christmas Secret Santa';
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url: APP_URL });
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') console.log(err);
+    }
+  }
+
+  // Fallback: open SMS with pre-filled message (works great on iOS/Android)
+  const smsUrl = `sms:?&body=${encodeURIComponent(text)}`;
+  window.location.href = smsUrl;
+}
+
 function showPanel(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
