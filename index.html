@@ -194,7 +194,7 @@
     <h2>Group Checklist</h2>
     <div class="form-group">
       <label>Expected Names (one per line)</label>
-      <textarea id="expectedNames" placeholder="Alice\nBob\nCharlie\nDana" style="min-height:120px;"></textarea>
+      <textarea id="expectedNames" placeholder="One name per line" style="min-height:120px;"></textarea>
       <button type="button" class="secondary" style="margin-top:8px;" onclick="saveExpectedNames()">Save Name List</button>
     </div>
     <div id="checklistSummary" style="margin:16px 0; font-weight:600;"></div>
@@ -209,7 +209,7 @@
       <button class="secondary" onclick="exportData()">Export Group Data</button>
       <button class="danger" onclick="clearAll()">Clear All Data</button>
     </div>
-    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Set the expected names above. Checkmarks appear automatically when someone submits their form.</p>
+    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Checkmarks appear automatically when someone submits their form with a matching name.</p>
   </div>
 
   <div id="draw" class="panel">
@@ -231,10 +231,15 @@
 <script>
 const STORAGE_KEY = 'secretSantaData_v1';
 const APP_URL = 'https://zachary-holmessolc.github.io/secret-santa-app/index.html';
+const DEFAULT_NAMES = ['Noel','Crystal','Jaylen','Nathan','Jesus','Yessenia','Myrna','Zach','Alex','JR','Jennifer','Julius'];
 
 function getData() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? JSON.parse(raw) : { people: [], assignments: {}, expectedNames: [] };
+  const data = raw ? JSON.parse(raw) : { people: [], assignments: {}, expectedNames: [] };
+  if (!data.expectedNames || data.expectedNames.length === 0) {
+    data.expectedNames = DEFAULT_NAMES;
+  }
+  return data;
 }
 function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
