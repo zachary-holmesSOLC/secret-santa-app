@@ -209,7 +209,7 @@
       <button class="secondary" onclick="exportData()">Export Group Data</button>
       <button class="danger" onclick="clearAll()">Clear All Data</button>
     </div>
-    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Checkmarks appear automatically when someone submits their form with a matching name.</p>
+    <p style="margin-top:16px;opacity:0.8;font-size:0.95rem;">Tip: Checkmarks appear automatically when someone submits their form with a matching name. Updates live across all devices.</p>
   </div>
 
   <div id="draw" class="panel">
@@ -225,23 +225,53 @@
     <div id="assignmentContent"></div>
   </div>
 
-  <footer>Made for your Christmas gift exchange • All data stays in this browser</footer>
+  <footer>Made for your Christmas gift exchange • Data is shared across all devices</footer>
 </div>
 
-<script>
-const STORAGE_KEY = 'secretSantaData_v1';
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// TODO: Replace with your Firebase config from the Firebase console
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const dataRef = ref(db, 'secretSanta');
+
 const APP_URL = 'https://zachary-holmessolc.github.io/secret-santa-app/index.html';
 const DEFAULT_NAMES = ['Noel','Crystal','Jaylen','Nathan','Jesus','Yessenia','Myrna','Zach','Alex','JR','Jennifer','Julius'];
 
-function getData() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  const data = raw ? JSON.parse(raw) : { people: [], assignments: {}, expectedNames: [] };
-  if (!data.expectedNames || data.expectedNames.length === 0) {
-    data.expectedNames = DEFAULT_NAMES;
-  }
-  return data;
+let currentData = { people: [], assignments: {}, expectedNames: DEFAULT_NAMES };
+
+function saveData(data) {
+  return set(dataRef, data);
 }
-function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+// Live listener
+onValue(dataRef, (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    currentData = {
+      people: data.people || [],
+      assignments: data.assignments || {},
+      expectedNames: data.expectedNames && data.expectedNames.length ? data.expectedNames : DEFAULT_NAMES
+    };
+  } else {
+    currentData.expectedNames = DEFAULT_NAMES;
+    saveData(currentData);
+  }
+  if (document.getElementById('group').classList.contains('active')) renderGroup();
+  if (document.getElementById('draw').classList.contains('active')) renderDrawStatus();
+});
 
 async function shareMessage(text, title = 'Christmas Secret Santa') {
   if (navigator.share) {
@@ -256,27 +286,24 @@ async function shareMessage(text, title = 'Christmas Secret Santa') {
   window.location.href = smsUrl;
 }
 
-async function shareApp() {
+window.shareApp = async function() {
   const text = `Hey! Join our Christmas Secret Santa 🎄\n\nFill out your wishlist here:\n${APP_URL}\n\nOpen the link, tap “My Form”, and save your info. Once everyone’s in we can draw names!`;
   await shareMessage(text);
-}
+};
 
-async function shareEveryoneJoined() {
-  const data = getData();
-  const names = data.people.map(p => p.name).join(', ');
+window.shareEveryoneJoined = async function() {
+  const names = currentData.people.map(p => p.name).join(', ');
   const text = `🎄 Everyone's in for Secret Santa! 🎉\n\nPeople signed up: ${names}\n\nOpen the app and go to the Draw Names tab to assign everyone:\n${APP_URL}\n\nThen check “My Assignment” to see who you got!`;
   await shareMessage(text, 'Everyone Joined – Time to Draw!');
-}
+};
 
-function saveExpectedNames() {
+window.saveExpectedNames = function() {
   const raw = document.getElementById('expectedNames').value;
   const names = raw.split(/\n+/).map(n => n.trim()).filter(Boolean);
-  const data = getData();
-  data.expectedNames = names;
-  saveData(data);
-  renderGroup();
+  currentData.expectedNames = names;
+  saveData(currentData);
   alert('Name list saved!');
-}
+};
 
 function showPanel(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -290,7 +317,8 @@ function showPanel(tabId) {
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => showPanel(tab.dataset.tab));
 });
-document.getElementById('santaForm').addEventListener('submit', e => {
+
+document.getElementById('santaForm').addEventListener('submit', async e => {
   e.preventDefault();
   const person = {
     name: document.getElementById('name').value.trim(),
@@ -305,19 +333,18 @@ document.getElementById('santaForm').addEventListener('submit', e => {
     pics: document.getElementById('pics').value.trim()
   };
   if (!person.name) return alert('Please enter your name');
-  const data = getData();
-  const idx = data.people.findIndex(p => p.name.toLowerCase() === person.name.toLowerCase());
-  if (idx >= 0) data.people[idx] = person;
-  else data.people.push(person);
-  saveData(data);
+  const idx = currentData.people.findIndex(p => p.name.toLowerCase() === person.name.toLowerCase());
+  if (idx >= 0) currentData.people[idx] = person;
+  else currentData.people.push(person);
+  await saveData(currentData);
   document.getElementById('formStatus').innerHTML = `<div class="status ok">✓ Saved for ${person.name}!</div>`;
   setTimeout(() => document.getElementById('formStatus').innerHTML = '', 3000);
 });
-function loadMyForm() {
+
+window.loadMyForm = function() {
   const name = prompt('Enter your name to load your form:');
   if (!name) return;
-  const data = getData();
-  const person = data.people.find(p => p.name.toLowerCase() === name.toLowerCase());
+  const person = currentData.people.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (!person) return alert('No form found for that name');
   document.getElementById('name').value = person.name;
   document.getElementById('color').value = person.color || '';
@@ -331,13 +358,12 @@ function loadMyForm() {
   document.getElementById('wish2').value = person.wishes?.[1] || '';
   document.getElementById('wish3').value = person.wishes?.[2] || '';
   document.getElementById('pics').value = person.pics || '';
-}
-function renderGroup() {
-  const data = getData();
-  const expected = data.expectedNames || [];
-  const submitted = new Set(data.people.map(p => p.name.toLowerCase()));
+};
 
-  // Checklist
+function renderGroup() {
+  const expected = currentData.expectedNames || [];
+  const submitted = new Set(currentData.people.map(p => p.name.toLowerCase()));
+
   const checklistEl = document.getElementById('checklist');
   const summaryEl = document.getElementById('checklistSummary');
   if (expected.length) {
@@ -355,21 +381,18 @@ function renderGroup() {
     checklistEl.innerHTML = '';
   }
 
-  // Load textarea
   document.getElementById('expectedNames').value = expected.join('\n');
 
-  // Everyone joined banner
   const joinedEl = document.getElementById('everyoneJoined');
   const allIn = expected.length >= 2 && expected.every(n => submitted.has(n.toLowerCase()));
   joinedEl.style.display = allIn ? 'block' : 'none';
 
-  // Submitted forms list
   const el = document.getElementById('groupList');
-  if (!data.people.length) {
+  if (!currentData.people.length) {
     el.innerHTML = '<div class="empty">No forms submitted yet.</div>';
     return;
   }
-  el.innerHTML = data.people.map(p => `
+  el.innerHTML = currentData.people.map(p => `
     <div class="person-card">
       <h3>${p.name}</h3>
       <p><strong>Color:</strong> ${p.color || '—'}</p>
@@ -382,21 +405,21 @@ function renderGroup() {
     </div>
   `).join('');
 }
+
 function renderDrawStatus() {
-  const data = getData();
   const el = document.getElementById('drawStatus');
-  if (data.people.length < 2) {
+  if (currentData.people.length < 2) {
     el.innerHTML = '<div class="status warn">Need at least 2 people before drawing.</div>';
-  } else if (Object.keys(data.assignments).length) {
-    el.innerHTML = `<div class="status ok">Names already drawn for ${Object.keys(data.assignments).length} people.</div>`;
+  } else if (Object.keys(currentData.assignments).length) {
+    el.innerHTML = `<div class="status ok">Names already drawn for ${Object.keys(currentData.assignments).length} people.</div>`;
   } else {
-    el.innerHTML = `<div class="status ok">${data.people.length} people ready to draw!</div>`;
+    el.innerHTML = `<div class="status ok">${currentData.people.length} people ready to draw!</div>`;
   }
 }
-function drawNames() {
-  const data = getData();
-  if (data.people.length < 2) return alert('Need at least 2 people.');
-  const names = data.people.map(p => p.name);
+
+window.drawNames = async function() {
+  if (currentData.people.length < 2) return alert('Need at least 2 people.');
+  const names = currentData.people.map(p => p.name);
   let assignments = {};
   let success = false;
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -410,29 +433,29 @@ function drawNames() {
     if (ok) { success = true; break; }
   }
   if (!success) return alert('Could not generate a valid assignment. Try again.');
-  data.assignments = assignments;
-  saveData(data);
+  currentData.assignments = assignments;
+  await saveData(currentData);
   renderDrawStatus();
   const results = document.getElementById('drawResults');
   results.innerHTML = '<h3 style="color:#d4af37;margin-bottom:12px;">Assignments (for organizer):</h3>' +
     Object.entries(assignments).map(([giver, receiver]) =>
       `<div class="person-card"><strong>${giver}</strong> → <strong>${receiver}</strong></div>`
     ).join('');
-}
+};
+
 function renderAssignment() {
-  const data = getData();
   const el = document.getElementById('assignmentContent');
   const name = prompt('Enter your name to see who you have:');
   if (!name) {
     el.innerHTML = '<div class="empty">Enter your name to view your assignment.</div>';
     return;
   }
-  const receiverName = data.assignments[name];
+  const receiverName = currentData.assignments[name];
   if (!receiverName) {
     el.innerHTML = '<div class="empty">Names have not been drawn yet, or your name was not found.</div>';
     return;
   }
-  const person = data.people.find(p => p.name === receiverName);
+  const person = currentData.people.find(p => p.name === receiverName);
   if (!person) {
     el.innerHTML = '<div class="empty">Assignment found but profile missing.</div>';
     return;
@@ -459,24 +482,22 @@ function renderAssignment() {
     </div>
   `;
 }
-function exportData() {
-  const data = getData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+
+window.exportData = function() {
+  const blob = new Blob([JSON.stringify(currentData, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'secret-santa-data.json';
   a.click();
-}
-function clearAll() {
+};
+
+window.clearAll = async function() {
   if (confirm('Delete all forms and assignments? This cannot be undone.')) {
-    localStorage.removeItem(STORAGE_KEY);
+    currentData = { people: [], assignments: {}, expectedNames: DEFAULT_NAMES };
+    await saveData(currentData);
     location.reload();
   }
-}
-renderDrawStatus();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
+};
 </script>
 </body>
 </html>
